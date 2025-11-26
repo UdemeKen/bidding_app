@@ -101,8 +101,89 @@ const logoutUser = asyncHandler(async (req, res) => {
     res.status(200).json({ message: "Successfully logged out." });
 });
 
+const loginAsSeller = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    if(!email || !password) {
+        res.status(400);
+        throw new Error("PLease add email and password.");
+    };
+
+    const user = await User.findOne({ email });
+    if(!user) {
+        res.status(400);
+        throw new Error("User not found. Please signup.");
+    };
+
+    const passwordIsCorrect = await bcrypt.compare(password, user.password);
+    if(!passwordIsCorrect) {
+        res.status(400);
+        throw new Error("Invalid password");
+    };
+
+    user.role = "seller";
+    await user.save();
+
+    const token = generateToken(user._id);
+    res.cookie("token", token, {
+        path: "/",
+        httpOnly: true,
+        expires: new Date(Date.now() + 1000 * 86400),
+        sameSite: "none",
+        secure: true,
+    });
+
+    if(user && passwordIsCorrect) {
+        const { _id, name, email, photo, role } = user;
+        res.status(201).json({ _id, name, email, photo, role });
+    } else {
+        res.status(401);
+        throw new Error("Invalid user data");
+    }
+});
+
+const getUser = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id).select("-password");
+    res.status(200).json(user);
+});
+
+const getUserBalance = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
+
+    if(!user) {
+        res.status(404);
+        throw new Error("User not found");
+    }
+
+    res.status(200).json({
+        balance: user.balance,
+    });
+});
+
+const getAllUser = asyncHandler(async (req, res) => {
+    const userList = await User.find({});
+
+    if(!userList.length) {
+        return res.status(404).json({message: "No user found!"});
+    }
+
+    res.status(200).json(userList);
+});
+
+const estimateincome = asyncHandler(async (req, res) => {
+    try {
+        const admin = await User.findOne({ role: "admin" });
+        if(!admin) {
+            return res.status(400).json({ message: "No user found"});
+        }
+        const commissionBalance = admin.commissionBalance;
+        res.status(200).json({ commissionBalance });
+    } catch (error) {
+        res.status(500).json({ error: "Internal server error."});
+    };
+});
+
 const test = asyncHandler(async (req, res) => {
-    res.send("");
+    res.send("Test.");
 })
 
 module.exports = {
@@ -110,5 +191,10 @@ module.exports = {
     loginUser,
     loginStatus,
     logoutUser,
+    loginAsSeller,
+    getUser,
+    getUserBalance,
+    getAllUser,
+    estimateincome,
     test,
 };

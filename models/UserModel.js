@@ -22,7 +22,7 @@ const userSchema = mongoose.Schema({
     role: {
         type: String,
         enum: ["admin", "seller", "buyer"],
-        default: "buyer",
+        default: "admin",
     }, 
     commissionBalance: {
         type: Number,
